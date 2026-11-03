@@ -6,7 +6,7 @@ Import("env")
 
 def embed_web_files(data_dir, output_file, sufix=""):
     if not os.path.exists(data_dir):
-        print(f"[WebEmbedder] Error: {data_dir} directory not found!")
+        print(f"[WebEmbedder] Skipping unavailable source assets: {data_dir}")
         return
     
     raw_v = "1.0.0" # fallback
@@ -57,7 +57,8 @@ def embed_web_files(data_dir, output_file, sufix=""):
         currentPageIndex = 0
         pageHomeIndex = -1
         for root, dirs, files in os.walk(data_dir):
-            for file in files:
+            dirs.sort()
+            for file in sorted(files):
                 full_path = os.path.join(root, file)
                 # Create a relative path and a valid C++ variable name
                 rel_path = os.path.relpath(full_path, data_dir).replace("\\", "/")
@@ -95,14 +96,14 @@ def embed_web_files(data_dir, output_file, sufix=""):
                     compressed = b""
                     if ext == ".css":
                         if combined_css:
-                            compressed = gzip.compress(combined_css)
+                            compressed = gzip.compress(combined_css, mtime=0)
                             var_name = var_name.replace(file.upper().replace(".", "_"), "HYPERK_CSS")
                             rel_path = rel_path.replace(file, f"hyperk{sufix}.css")
                             combined_css = b""
                         else:
                             continue
                     else:
-                        compressed = gzip.compress(raw_data)
+                        compressed = gzip.compress(raw_data, mtime=0)
                     
                     f.write(f"const char PAGE{sufix}_{var_name}[] PROGMEM = {{ ")
                     f.write(", ".join([f"0x{b:02x}" for b in compressed]))
@@ -120,7 +121,7 @@ def embed_web_files(data_dir, output_file, sufix=""):
                     currentPageIndex = currentPageIndex + 1
 
         # 2. Define the Resource structure and the lookup table
-        f.write(f"struct WebResource {{\n  const char* url;\n  PGM_P data;\n  uint32_t len;\n  const char* mime;\n}};\n\n")
+        f.write('#include "web_resource.h"\n\n')
         
         f.write(f"{'extern ' if sufix else ''}const WebResource webResources{sufix}[] = {{\n")
         for file in files_data:

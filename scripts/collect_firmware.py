@@ -1,8 +1,11 @@
 import os
+import hashlib
+import json
 import shutil
 import re
 import subprocess
 from os.path import exists
+from pathlib import Path
 
 Import("env")
 
@@ -50,8 +53,11 @@ def copy_firmware(target, source, env):
     source_path = os.path.join(build_dir, env.subst("${PROGNAME}") + ext)
 
     if os.path.exists(source_path):
+        metadata = dict(env.get("HYPERK_BUILD_METADATA", {}))
+        identity = metadata.get("build_id", "unknown")
+        variant = f"{env_name}_{identity}"
         # 1. Kopiowanie OTA
-        dest_name = f"Hyperk_{app_version}_{env_name}{ext}"
+        dest_name = f"Hyperk_{app_version}_{variant}{ext}"
         dest_path = os.path.join(dist_dir, dest_name)                
 
         # 2. Factory Merge
@@ -69,7 +75,7 @@ def copy_firmware(target, source, env):
                 print(f">>> [SUCCESS] Copy firmware: {dest_name}")
             elif os.path.exists(bootloader) and os.path.exists(partitions):
                 mcu = env.get("BOARD_MCU", "esp32")                
-                factory_path = os.path.join(dist_dir, f"Hyperk_{app_version}_{env_name}_factory.bin")
+                factory_path = os.path.join(dist_dir, f"Hyperk_{app_version}_{variant}_factory.bin")
                 boot_addr = "0x1000" if mcu in ["esp32", "esp32s2"] else ("0x2000" if mcu == "esp32c5" else "0x0")
                 try:
                     run_merge_bin(mcu, factory_path, boot_addr, bootloader, partitions, source_path, env)
@@ -88,7 +94,19 @@ def copy_firmware(target, source, env):
                     shutil.copy2(source_bin, ota_dest_path)
                     print(f">>> [SUCCESS] OTA firmware: {ota_dest_name}")
 
+        artifacts = []
+        for path in sorted(Path(dist_dir).glob(f"*Hyperk_{app_version}_{variant}*")):
+            if path.suffix in (".bin", ".uf2"):
+                artifacts.append({"file": path.name, "bytes": path.stat().st_size,
+                                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+        metadata["artifacts"] = artifacts
+        metadata["backend_sha256"] = json.loads((Path(project_dir)/"resources/backend_checksums.json").read_text()).get(app_version, {}).get(
+            f"libBackend_{metadata.get('backend_environment', env_name)}.a")
+        manifest = Path(dist_dir) / f"Hyperk_{app_version}_{variant}.json"
+        manifest.write_text(json.dumps(metadata, indent=2, sort_keys=True) + chr(10))
+        print(f">>> Build manifest: {manifest.name}")
     else:
         print(f">>> [ERROR] File not found: {source_path}")
+        env.Exit(1)
 
 env.AddPostAction("buildprog", copy_firmware)

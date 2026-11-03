@@ -17,3 +17,7 @@ ccache.exe
 .ccache/
 CMakeLists.txt
 dependencies.lock
+
+__pycache__/
+*.py[cod]
+node_modules/

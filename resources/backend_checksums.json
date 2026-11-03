@@ -1,0 +1,19 @@
+{
+  "0.0.5": {
+    "libBackend_esp32-DOMRAEM_WLE_ADM.a": "df45591ec00dc5a788dccc191ba93894d90ff08bbec9ebc968eb48b40ca63735",
+    "libBackend_esp32-GLEDOPTO_GL_C_615WL.a": "d77c4d857d195b456ce2a8f2cf1cd14dbb888499c3aa4ca168f770990df192ac",
+    "libBackend_esp32-GLEDOPTO_GL_C_616WL.a": "067019f3396464bc583e2663d8dc22cb60fd48f9113da6aaa75c0ed48084c4a4",
+    "libBackend_esp32-IOTORERO_ETHERNET.a": "d772dc0168cfbed2712113021f83752ce12eabcfdc8d456f342ab0bf91a06374",
+    "libBackend_esp32-eth01.a": "dc975206dec6448d832ef5cb5d856a49dfe3d971448eb6c4c6cc07ead72cc57d",
+    "libBackend_esp32.a": "a0ee50a1103b02fa04186443b370f335e1f25bcc65ef7910c9e6d1349a801a5f",
+    "libBackend_esp32c2.a": "f8343a0be9e2e50554cc91f5dccad04c03b93aa2d47eae5ece8d6a4bacd223fb",
+    "libBackend_esp32c3.a": "c703dd03da275ec5352a6e796214f31e7255fd596f876b6885d0fcb193d75192",
+    "libBackend_esp32c5.a": "0fb1295f20adb1b9f986eab1f10500f8e10df665f1256100a8bb7922943a74d6",
+    "libBackend_esp32c6.a": "2cebb6f736eac07bafa77be9dd2e935bbe06c654faf78581b7cc3fa142da4dde",
+    "libBackend_esp32s2.a": "059eb460f64f6e1b8d1c228681221509d32549498761eac86bd7189a1c0a2795",
+    "libBackend_esp32s3.a": "4b36e800804c5b63df8a2ce9ca6938e45056e894d4f79289ffee13fb7e201a6e",
+    "libBackend_esp8266.a": "20a0e973c7c8c85fa319529f1f5c13c4ffb1e9dae6f6111b6ea0ea3699ff5a88",
+    "libBackend_pico.a": "8086465b2b22ee1368ed42e0d7d2962ccdc6d5ba8bee76d9c0dd6def8514cf2e",
+    "libBackend_pico2.a": "8898fb8be296ce4473567522e1089d9caba362a4ef95f0774f965efdb447ebd3"
+  }
+}

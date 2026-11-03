@@ -57,6 +57,9 @@
 #include <DNSServer.h>
 #include "main.h"
 #include "web_resources_OSS.h"
+#include "wifi_power.h"
+#include "board_api.h"
+#include "network_recovery.h"
 
 namespace {
     DNSServer dnsServer;
@@ -65,12 +68,45 @@ namespace {
     bool inAPMode = false;
     bool hasEthernet = false;
     bool scheduledApRestart = false;
+    bool networkServicesStarted = false;
+    #ifdef HYPERK_WIFI_RECOVERY
+        #if !defined(ARDUINO_ARCH_ESP32)
+            #error "WiFi recovery currently requires ESP32"
+        #endif
+        bool wifiCredentialsConfigured = false;
+        NetworkRecovery::Policy recovery;
+    #endif
+
+    void startNetworkServices() {
+        if (networkServicesStarted) return;
+        Mdns::startMDNS();
+        udpDDP.begin(4048);
+        udpRealTime.begin(21324);
+        udpRAW.begin(5568);
+        networkServicesStarted = true;
+        Log::SERIAL_LOG("mDNS and UDP listeners started");
+    }
+
+    #ifdef HYPERK_WIFI_RECOVERY
+    void stopNetworkServices() {
+        if (!networkServicesStarted) return;
+        udpDDP.stop(); udpRealTime.stop(); udpRAW.stop();
+        MDNS.end();
+        networkServicesStarted = false;
+    }
+    #endif
 
     void startAP(bool scheduleAutomaticRestartToReconnect) {
         constexpr uint16_t DNS_PORT = 53;
         inAPMode = true;
-        WiFi.mode(WIFI_AP);
+        #ifdef HYPERK_WIFI_RECOVERY
+            stopNetworkServices();
+            WiFi.mode(wifiCredentialsConfigured ? WIFI_AP_STA : WIFI_AP);
+        #else
+            WiFi.mode(WIFI_AP);
+        #endif
         WiFi.softAP(APP_NAME "-Setup");    
+        WifiPower::apply();
         delay(200);     
         IPAddress IP = WiFi.softAPIP();    
         dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
@@ -91,6 +127,9 @@ bool isAPMode() {
 }
 
 void setup() {
+    #ifdef HYPERK_BOARD_UI
+        BoardApi::init();
+    #endif
     #if defined(ARDUINO_ARCH_ESP32)
         LittleFS.begin(true);
     #else
@@ -136,13 +175,23 @@ void setup() {
 
     // WiFi connection with fallback
     if (!hasEthernet){
+        WifiPower::init();
         const char *ssid = nullptr, *pass = nullptr;
         bool hasWifiConfig = Config::getWifiCredentials(ssid, pass);
+        #ifdef HYPERK_WIFI_RECOVERY
+            wifiCredentialsConfigured = hasWifiConfig;
+            WiFi.setAutoReconnect(false); // The policy below owns retry timing.
+        #endif
         if (hasWifiConfig)
         {
+            #if defined(WIFI_TX_POWER_DBM) || defined(WIFI_LOW_LATENCY)
+                // Start the radio first so the limit also covers association.
+                WiFi.mode(WIFI_STA);
+                WifiPower::apply();
+            #endif
             WiFi.begin(ssid, pass);
-            uint32_t timeout = millis() + 12000;
-            while (WiFi.status() != WL_CONNECTED && millis() < timeout)
+            const uint32_t started = millis();
+            while (WiFi.status() != WL_CONNECTED && static_cast<uint32_t>(millis() - started) < WIFI_CONNECT_TIMEOUT_MS)
             {
                 delay(400);
             }
@@ -150,7 +199,11 @@ void setup() {
 
         if (WiFi.status() != WL_CONNECTED)
         {
-            startAP(hasWifiConfig);
+            #ifdef HYPERK_WIFI_RECOVERY
+                startAP(false);
+            #else
+                startAP(hasWifiConfig);
+            #endif
         }
         else
         {
@@ -158,22 +211,15 @@ void setup() {
         }
     }
 
-    if (!inAPMode) {
-        Mdns::startMDNS();
-    }
+    #ifdef HYPERK_WIFI_RECOVERY
+        recovery.begin(wifiCredentialsConfigured, WiFi.status() == WL_CONNECTED, millis());
+    #endif
 
     WebServerProvider::setupWebServer();
 
     Log::SERIAL_LOG("HTTP Server started");
 
-    if (!inAPMode) {
-        udpDDP.begin(4048);
-        Log::SERIAL_LOG("UDP DDP listener started on port 4048");
-        udpRealTime.begin(21324);
-        Log::SERIAL_LOG("UDP RealTime listener started on port 21324");
-        udpRAW.begin(5568);
-        Log::SERIAL_LOG("Raw RGB color stream listener started on port 5568");
-    }
+    if (!inAPMode) startNetworkServices();
 
     (void)Update;    
 }
@@ -184,7 +230,28 @@ void loop()
         SerialPort::processEventsFromLoop();
     #endif
 
-    if (!inAPMode) {
+    #ifdef HYPERK_WIFI_RECOVERY
+        if (!hasEthernet) {
+            const bool connected = WiFi.status() == WL_CONNECTED;
+            if (!connected) stopNetworkServices();
+            const auto action = recovery.poll(millis(), connected,
+                inAPMode, inAPMode && WiFi.softAPgetStationNum() > 0);
+            if (action == NetworkRecovery::Action::Retry) {
+                WiFi.reconnect();
+            } else if (action == NetworkRecovery::Action::StartAP) {
+                startAP(false);
+            } else if (action == NetworkRecovery::Action::CloseAP) {
+                dnsServer.stop();
+                WiFi.softAPdisconnect(true);
+                inAPMode = false;
+                WifiPower::apply();
+                startNetworkServices();
+            }
+            if (connected && !inAPMode) startNetworkServices();
+        }
+    #endif
+
+    if (!inAPMode && networkServicesStarted) {
         UdpReceiver::handleDDP(udpDDP);
         UdpReceiver::handleRealTime(udpRealTime);
         UdpReceiver::handleRAW(udpRAW);

@@ -6,3 +6,12 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every month
       interval: "monthly"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"

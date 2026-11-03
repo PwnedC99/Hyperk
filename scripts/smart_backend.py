@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from functools import partial
 import urllib.request
 import urllib.error
@@ -19,7 +20,8 @@ with open(version_file, "r") as f:
     app_version = f.read().strip()
 
 backend_src_dir = os.path.join(project_dir, "src", "backend")
-libbackend_name = f"libBackend_{pioenv}.a"
+backend_env = env.GetProjectOption("custom_backend_env", pioenv)
+libbackend_name = f"libBackend_{backend_env}.a"
 
 # ==========================================
 # MAIN SCRIPT DECISION LOGIC
@@ -52,28 +54,24 @@ else:
 
     env.Append(CXXFLAGS=["-fno-exceptions", "-fno-rtti"])
     
-    cache_dir = os.path.join(project_dir, "export_backend", "precompiled", app_version, pioenv)
+    cache_dir = os.path.join(project_dir, "export_backend", "precompiled", app_version, backend_env)
     os.makedirs(cache_dir, exist_ok=True)    
     local_lib_path = os.path.join(cache_dir, libbackend_name)
 
-    if not os.path.exists(local_lib_path):        
-        url = f"https://github.com/awawa-dev/Hyperk-Backend/releases/download/{app_version}/{libbackend_name}"        
-        print(f"-> Downloading required backend v{app_version} from GitHub...")
-        
-        try:
-            with urllib.request.urlopen(url, timeout=15) as response, open(local_lib_path, 'wb') as out_file:
-                out_file.write(response.read())
-            print(f"[\033[92mSUCCESS\033[0m] Successfully downloaded and cached.")
-        except urllib.error.HTTPError as e:
-            print(f"\033[91mERROR: Cannot find library (HTTP Code {e.code}).\033[0m")
-            print(f"Probably version '{app_version}' for environment '{pioenv}' has not been released yet.")
-            print(f"Checked URL: {url}")
-            Exit(1)
-        except Exception as e:
-            print(f"\033[91mCONNECTION ERROR: Make sure you have internet access. ({e})\033[0m")
-            Exit(1)
-    else:
-        print(f"-> Using precompiled backend v{app_version} from cache.")
+    sys.path.insert(0, os.path.join(project_dir, "scripts"))
+    from backend_download import ensure_backend
+    manifest_path = Path(project_dir) / "resources" / "backend_checksums.json"
+    expected = json.loads(manifest_path.read_text()).get(app_version, {}).get(libbackend_name)
+    if not expected:
+        print(f"ERROR: No pinned checksum for backend {app_version}/{libbackend_name}. Update resources/backend_checksums.json.")
+        Exit(1)
+    url = f"https://github.com/awawa-dev/Hyperk-Backend/releases/download/{app_version}/{libbackend_name}"
+    try:
+        downloaded = ensure_backend(url, local_lib_path, expected)
+        print("-> Backend downloaded and verified." if downloaded else "-> Cached backend SHA-256 verified.")
+    except Exception as error:
+        print(f"ERROR: Cannot obtain verified backend {url}: {error}")
+        Exit(1)
 
     env.Append(LIBS=[env.File(local_lib_path)])
 

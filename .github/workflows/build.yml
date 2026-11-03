@@ -2,10 +2,36 @@ name: PlatformIO Build All
 
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
+  tests:
+    name: Unit and browser tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Host tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Verify pinned backend UI
+        run: python scripts/check_backend_ui.py --output "${{ runner.temp }}/hyperk-ui"
+      - name: Browser integration tests
+        env:
+          HYPERK_BACKEND_FIXTURES: ${{ runner.temp }}/hyperk-ui
+        run: npm test
+
   build:
+    needs: tests
     name: "${{ matrix.group }}"
     runs-on: ubuntu-latest
     permissions:
@@ -24,7 +50,11 @@ jobs:
             boards: "esp32s2"
             cache_extra: ""
           - group: ModernESP_S3
-            boards: "esp32s3"
+            boards: "esp32s3 esp32s3-fh4r2"
+            cache_extra: ""
+          - group: ModernESP_S3_tuned
+            boards: "esp32s3-fh4r2"
+            build_src_flags: "-DWIFI_TX_POWER_DBM=17.0 -DWIFI_LOW_LATENCY=1"
             cache_extra: ""
           - group: ClassicESP
             boards: "esp32 esp32-eth01 esp8266"
@@ -53,25 +83,25 @@ jobs:
             ~/.platformio/platforms
             .ccache
             ${{ matrix.cache_extra }}
-          key: pio-${{ matrix.group }}-${{ hashFiles('platformio.ini') }}
+          key: pio-${{ matrix.group }}-${{ hashFiles('platformio.ini', 'requirements-build.txt', 'resources/backend_checksums.json') }}
           restore-keys: |
             pio-${{ matrix.group }}-
 
       - name: Install PlatformIO + esptool + ccache
         run: |
-          sudo apt update
-          sudo apt install ccache
+          sudo apt-get update
+          sudo apt-get install -y ccache
           python -m pip install --upgrade pip
-          pip install --upgrade platformio esptool
+          pip install -r requirements-build.txt
 
       - name: Build ${{ matrix.group }}
+        env:
+          PLATFORMIO_BUILD_SRC_FLAGS: ${{ matrix.build_src_flags || '' }}
         run: |
           ENVS="${{ matrix.boards }}"
-          CMD="pio run -j 2"
           for env in $ENVS; do
-            CMD="$CMD -e $env"
+            pio run -j 2 -e "$env"
           done
-          eval "$CMD"
 
       - name: "Upload Artifacts - ${{ matrix.group }}"
         uses: actions/upload-artifact@v7
