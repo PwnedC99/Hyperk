@@ -106,8 +106,9 @@ HYPERK_BACKEND_FIXTURES=/tmp/hyperk-ui npm test
 ```
 
 The backend UI check verifies the pinned binary archive and extracts only browser
-assets for DOM tests. GitHub Actions runs these checks before the firmware matrix,
-including generic S3, FH4R2 defaults, and FH4R2 with TX/latency options enabled.
+assets for DOM tests. GitHub Actions runs these checks before building only `esp32s3-fh4r2`, with
+defaults and with TX/latency options enabled. Other device profiles are available
+for manual local builds and are not built by the workflow.
 
 Hardware checks still required: toggle the actual GPIO1 load; power-cycle with
 both saved states; interrupt/restore the router; and verify LED streaming and the

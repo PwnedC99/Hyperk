@@ -1,4 +1,4 @@
-name: PlatformIO Build All
+name: ESP32-S3FH4R2 Firmware
 
 on:
   push:
@@ -32,39 +32,10 @@ jobs:
 
   build:
     needs: tests
-    name: "${{ matrix.group }}"
+    name: ESP32-S3FH4R2
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
-    strategy:
-      matrix:
-        include:
-          - group: ModernESP_C2
-            boards: "esp32c2"
-            cache_extra: ".pio"
-          - group: ModernESP_C3_C5_C6
-            boards: "esp32c3 esp32c5 esp32c6"
-            cache_extra: ""
-          - group: ModernESP_S2
-            boards: "esp32s2"
-            cache_extra: ""
-          - group: ModernESP_S3
-            boards: "esp32s3 esp32s3-fh4r2"
-            cache_extra: ""
-          - group: ModernESP_S3_tuned
-            boards: "esp32s3-fh4r2"
-            build_src_flags: "-DWIFI_TX_POWER_DBM=17.0 -DWIFI_LOW_LATENCY=1"
-            cache_extra: ""
-          - group: ClassicESP
-            boards: "esp32 esp32-eth01 esp8266"
-            cache_extra: ""
-          - group: CustomBoards
-            boards: "esp32-GLEDOPTO_GL_C_616WL esp32-GLEDOPTO_GL_C_615WL esp32-DOMRAEM_WLE_ADM esp32-IOTORERO_ETHERNET"
-            cache_extra: "" 
-          - group: Pico
-            boards: "pico pico2"
-            cache_extra: ""
 
     steps:
       - name: Checkout code
@@ -75,17 +46,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: "Cache PlatformIO - ${{ matrix.group }}"
+      - name: Cache PlatformIO - ESP32-S3FH4R2
         uses: actions/cache@v6
         with:
           path: |
             ~/.platformio/packages
             ~/.platformio/platforms
-            .ccache
-            ${{ matrix.cache_extra }}
-          key: pio-${{ matrix.group }}-${{ hashFiles('platformio.ini', 'requirements-build.txt', 'resources/backend_checksums.json') }}
+            .ccache/esp32s3-fh4r2
+          key: pio-esp32s3-fh4r2-${{ hashFiles('platformio.ini', 'requirements-build.txt', 'resources/backend_checksums.json') }}
           restore-keys: |
-            pio-${{ matrix.group }}-
+            pio-esp32s3-fh4r2-
 
       - name: Install PlatformIO + esptool + ccache
         run: |
@@ -94,25 +64,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-build.txt
 
-      - name: Build ${{ matrix.group }}
-        env:
-          PLATFORMIO_BUILD_SRC_FLAGS: ${{ matrix.build_src_flags || '' }}
-        run: |
-          ENVS="${{ matrix.boards }}"
-          for env in $ENVS; do
-            pio run -j 2 -e "$env"
-          done
+      - name: Build ESP32-S3FH4R2 defaults
+        run: pio run -j 2 -e esp32s3-fh4r2
 
-      - name: "Upload Artifacts - ${{ matrix.group }}"
+      - name: Build ESP32-S3FH4R2 with WiFi tuning
+        env:
+          PLATFORMIO_BUILD_SRC_FLAGS: '-DWIFI_TX_POWER_DBM=17.0 -DWIFI_LOW_LATENCY=1'
+        run: pio run -j 2 -e esp32s3-fh4r2
+
+      - name: Upload ESP32-S3FH4R2 firmware
         uses: actions/upload-artifact@v7
         with:
-          name: Hyperk-Firmware-${{ matrix.group }}
+          name: Hyperk-Firmware-esp32s3-fh4r2
           path: release/
           if-no-files-found: error
 
       - name: Generate Job Summary
-        run: |
-          echo "**Boards:** ${{ matrix.boards }}" >> $GITHUB_STEP_SUMMARY
+        run: echo '**Board:** ESP32-S3FH4R2 (esp32s3-fh4r2), default and WiFi-tuned variants' >> "$GITHUB_STEP_SUMMARY"
 
   release:
     needs: build
