@@ -37,7 +37,8 @@ profile links the official `esp32s3` backend archive without modifying it.
 ### GPIO1 peripheral control
 
 Open **Settings → LED Hardware → Peripherie**, or open `/board.html` on the device.
-The button switches GPIO1 between LOW (off) and HIGH (on). The last selected state
+The switch uses the same styling as the other LED hardware settings and switches
+GPIO1 between LOW (off) and HIGH (on). Changes are saved immediately; the last selected state
 is stored in NVS and restored after restart or loss of power. A fresh installation
 starts with the peripheral output off. Repeated requests for the same state do
 not rewrite flash. If saving fails, the output remains in its previous state.
@@ -49,6 +50,40 @@ relay pin. GPIO37 and GPIO38 are available as LED data and clock pins.
 The board page also shows connection status, RSSI, the requested transmit-power
 ceiling, the ceiling reported by the WiFi driver, disconnection reasons, and the
 build ID. The driver-reported ceiling is not a measurement of radiated power.
+
+### Local OTA firmware upload
+
+Open **Settings → Firmware Update (OTA) → Lokale Firmware installieren**, select
+the `OTA_Hyperk_...esp32s3-fh4r2_....bin` from your build, and click
+**Firmware hochladen**. Confirm the selected file and keep power connected until
+the device reports success and restarts. The page reloads after the restart.
+The upload replaces the application; the existing partition table and settings
+storage are preserved. This requires a compatible existing partition layout.
+
+The file is checked for the ESP32-S3 chip ID, application descriptor, and the
+maximum OTA slot size before uploading. Factory images are rejected. Upload
+progress, device confirmation, and errors appear in the existing OTA section.
+The original **Stable / Testing** channels remain available and fetch official
+upstream firmware; use the local upload to install this custom board build.
+
+The original 0.0.5 interface has no local file picker. To install the first build
+with this extension, use the existing `/ota` endpoint from PowerShell (replace
+the address and file path):
+
+```powershell
+$esp = "http://192.168.178.50"
+$firmware = Get-Item "C:\Path\YOUR_OTA_FILE.bin"
+curl.exe --fail-with-body --show-error `
+  -H "hyperk-ota-firmware-size: $($firmware.Length)" `
+  -H "hyperk-ota-firmware-name: OTA_Hyperk_local_esp32s3.bin" `
+  -F "update=@$($firmware.FullName)" `
+  "$esp/ota"
+```
+
+The firmware-name header matches the original ESP32-S3 backend's name check;
+the selected file is uploaded unchanged. After the update, hard-refresh the
+settings page once (Ctrl+F5), or open it in a private browser window, to replace
+cached original scripts. Subsequent local updates can use the new file picker.
 
 ### WiFi options
 
@@ -90,9 +125,9 @@ to temporary files, and renamed only after successful verification. Existing
 cached archives are checked on every build. An upgrade requires reviewing and
 adding the official release checksums before changing `version`.
 
-The UI extension targets backend 0.0.5 and loads its original browser script at
+The UI extensions target backend 0.0.5 and load its original browser scripts at
 runtime. After first flashing this fork, hard-refresh the settings page once to
-clear previously cached scripts. Custom board scripts are served without caching.
+clear previously cached scripts. Custom board and OTA scripts are served without caching.
 
 ### Tests
 
@@ -113,6 +148,8 @@ for manual local builds and are not built by the workflow.
 Hardware checks still required: toggle the actual GPIO1 load; power-cycle with
 both saved states; interrupt/restore the router; and verify LED streaming and the
 native backend pages after leaving setup mode. No device is flashed automatically.
+For local OTA, also verify an actual upload, successful reboot, and retained WiFi,
+LED settings, and peripheral state on the device.
 
 ## Supported LED Types
 

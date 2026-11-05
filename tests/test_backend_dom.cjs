@@ -88,11 +88,14 @@ integration('peripheral button sends an explicit desired state and shows separat
     const page = await openSettings(config());
     try {
         const button = page.w.document.querySelector('[data-peripheral-toggle]');
-        assert.equal(button.type, 'button');
-        assert.equal(button.getAttribute('aria-pressed'), 'false');
+        assert.equal(button.type, 'checkbox');
+        assert.equal(button.getAttribute('role'), 'switch');
+        assert.equal(button.checked, false);
+        assert(button.closest('.toggleContainer'));
+        assert.equal(button.closest('[data-board-panel]').tagName, 'DIV');
         button.click(); await tick();
         assert.deepEqual(page.posts, ['enabled=1']);
-        assert.equal(button.getAttribute('aria-pressed'), 'true');
+        assert.equal(button.checked, true);
         assert.match(page.w.document.querySelector('[data-wifi-diagnostics]').textContent, /17 dBm.*16.5 dBm/);
         button.click(); await tick();
         assert.deepEqual(page.posts, ['enabled=1', 'enabled=0']);
@@ -102,7 +105,7 @@ integration('peripheral button sends an explicit desired state and shows separat
 integration('saved enabled state is reflected after a page reload', async () => {
     const saved = state(true);
     const page = await openSettings(config(), saved);
-    try { assert.equal(page.w.document.querySelector('[data-peripheral-toggle]').getAttribute('aria-pressed'), 'true'); }
+    try { assert.equal(page.w.document.querySelector('[data-peripheral-toggle]').checked, true); }
     finally { page.dom.window.close(); }
 });
 
@@ -111,7 +114,7 @@ integration('failed peripheral writes remain visible and never show an enabled o
     try {
         const button = page.w.document.querySelector('[data-peripheral-toggle]');
         button.click(); await tick();
-        assert.equal(button.getAttribute('aria-pressed'), 'false');
+        assert.equal(button.checked, false);
         const error = page.w.document.querySelector('[data-board-error]');
         assert.equal(error.hidden, false);
         assert.match(error.textContent, /Speicherung fehlgeschlagen/);

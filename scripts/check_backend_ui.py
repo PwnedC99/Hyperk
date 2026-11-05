@@ -20,6 +20,10 @@ def extract_ui(library, output):
             if not decoder.eof: raise ValueError("Incomplete asset")
             if "function setupPinValidator()" in text and "function setupLedHardware()" in text:
                 found["settings_led_hardware.js"] = text
+            elif "function setupOta()" in text and "function startOtaUpdate()" in text:
+                found["settings_ota.js"] = text
+            elif 'id="ota_channel"' in text and 'id="install_update_btn"' in text and "<html" not in text:
+                found["settings_ota.html"] = text
             elif '<form action="/save_config"' in text and "function setupPageControls(" in text:
                 found["settings.html"] = text
             elif 'id="segmentContainer"' in text and 'id="ledType"' in text and "<html" not in text:
@@ -27,14 +31,20 @@ def extract_ui(library, output):
         except (zlib.error, UnicodeError, ValueError):
             pass
         position += 3
-    expected = {"settings_led_hardware.js", "settings.html", "settings_led_hardware.html"}
+    expected = {"settings_led_hardware.js", "settings.html", "settings_led_hardware.html",
+                "settings_ota.js", "settings_ota.html"}
     if set(found) != expected: raise ValueError("Backend UI layout changed; review the board extension")
     pattern = r'"ESP32-S3"\s*:\s*\{\s*gpio\s*:\s*\[([^\]]*)\]'
     if len(re.findall(pattern, found["settings_led_hardware.js"])) != 1:
         raise ValueError("Backend S3 GPIO contract changed")
+    for contract in ["let isUpdating = false", 'xhr.open("POST", "/ota", true)',
+                     'formData.append("update",', '"hyperk-ota-firmware-size"',
+                     '"hyperk-ota-firmware-name"', "function customConfirm(", "function closeConfirm("]:
+        if contract not in found["settings_ota.js"]:
+            raise ValueError(f"Backend OTA contract changed: {contract}")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    for name, text in found.items(): (output/name).write_text(text)
+    for name, text in found.items(): (output/name).write_text(text, encoding="utf-8")
 
 
 def main():

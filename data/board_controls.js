@@ -1,16 +1,19 @@
 (() => {
     function mount(parent) {
         if (!parent || parent.querySelector('[data-board-panel]')) return;
-        const panel = document.createElement('article');
+        const panel = document.createElement('div');
         panel.dataset.boardPanel = 'true';
-        panel.innerHTML = `<h2>Peripherie</h2>
-            <p data-peripheral-status role="status" aria-live="polite">Zustand wird geladen …</p>
-            <button type="button" data-peripheral-toggle disabled>Peripherie einschalten</button>
-            <p><small>Der gewählte Zustand bleibt nach einem Neustart erhalten.</small></p>
-            <p><a href="/board.html">Board-Steuerung öffnen</a></p>
+        panel.innerHTML = `<div class="toggleContainer">
+            <label>Peripherie (GPIO1)
+                <input type="checkbox" role="switch" data-peripheral-toggle disabled>
+            </label>
+            <small data-peripheral-status role="status" aria-live="polite">Zustand wird geladen …</small>
+            <small> · Wird sofort gespeichert und nach einem Neustart wiederhergestellt.</small>
+            </div>
             <details><summary>WLAN-Diagnose</summary>
                 <dl data-wifi-diagnostics></dl>
             </details>
+            <small><a href="/board.html">Board-Steuerung öffnen</a></small>
             <p data-board-error role="alert" hidden></p>`;
         parent.appendChild(panel);
         const button = panel.querySelector('[data-peripheral-toggle]');
@@ -46,8 +49,7 @@
             showDiagnostics(state);
             enabled = state.peripheral.enabled;
             status.textContent = `GPIO${state.peripheral.gpio}: ${enabled ? 'EIN (HIGH)' : 'AUS (LOW)'}`;
-            button.textContent = enabled ? 'Peripherie ausschalten' : 'Peripherie einschalten';
-            button.setAttribute('aria-pressed', String(enabled));
+            button.checked = enabled;
             button.disabled = busy || !state.peripheral.storage_ready;
             if (!state.peripheral.storage_ready) throw new Error('Der Zustand kann nicht im Flash gespeichert werden.');
         }
@@ -72,7 +74,7 @@
                 if (current === generation && !busy) { error.textContent = err.message; error.hidden = false; }
             } finally { refreshing = false; }
         }
-        button.addEventListener('click', async () => {
+        button.addEventListener('change', async () => {
             if (busy) return;
             generation++;
             busy = true; button.disabled = true;
