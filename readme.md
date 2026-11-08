@@ -34,6 +34,13 @@ The generic `esp32s3` profile keeps its original board configuration. The custom
 profile links the official `esp32s3` backend archive without modifying it.
 `ccache` is optional. The LED library and build tools have pinned versions.
 
+### ESP32-S3 USB / HyperSerial fix
+
+The FH4R2 profile enables hardware USB CDC and bridges the pinned backend 0.0.5
+UART0 calls to USB Serial/JTAG without modifying its parser or archive.
+See [USB_SERIAL_FIX.md](USB_SERIAL_FIX.md) for validation results, limitations,
+and OTA/application-only USB installation that preserves settings.
+
 ### GPIO1 peripheral control
 
 Open **Settings → LED Hardware → Peripherie**, or open `/board.html` on the device.

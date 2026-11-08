@@ -64,6 +64,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-build.txt
 
+      - name: Verify resolved USB CDC configuration
+        run: python tests/test_usb_config.py
+
       - name: Build ESP32-S3FH4R2 defaults
         run: pio run -j 2 -e esp32s3-fh4r2
 
