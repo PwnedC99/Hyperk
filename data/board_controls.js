@@ -1,4 +1,75 @@
 (() => {
+    const storageErrors = {
+        filesystem_mount_failed: 'Dateisystem konnte nicht eingebunden werden. Vorhandene Daten wurden erhalten.',
+        filesystem_not_mounted: 'Dateisystem ist nicht verfügbar.',
+        existing_config_invalid: 'Gespeicherte Konfiguration ist ungültig. Die Datei wurde nicht gelöscht.',
+        backend_load_failed: 'Das Backend konnte die Konfiguration nicht laden.',
+        pending_cleanup_failed: 'Temporäre Konfigurationsdatei konnte nicht entfernt werden.',
+        backend_write_failed: 'Konfiguration konnte nicht geschrieben werden.',
+        written_config_invalid: 'Geschriebene Konfiguration war unvollständig oder ungültig.',
+        config_commit_failed: 'Geprüfte Konfiguration konnte nicht übernommen werden.',
+        save_failed_and_reload_failed: 'Speichern und Wiederherstellen der vorherigen Konfiguration sind fehlgeschlagen.'
+    };
+    function installSettingsSaver() {
+        for (const path of ['/save_wifi', '/save_config']) {
+            const form = document.querySelector(`form[action="${path}"]`);
+            if (!form || form.dataset.protectedSave) continue;
+            form.dataset.protectedSave = 'true';
+            const message = document.createElement('p');
+            message.dataset.configSaveStatus = 'true';
+            message.setAttribute('role', 'status');
+            message.setAttribute('aria-live', 'polite');
+            form.appendChild(message);
+            let busy = false;
+            form.addEventListener('submit', async event => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (busy) return;
+                message.textContent = '';
+                message.setAttribute('role', 'status');
+                if (!form.reportValidity()) return;
+                const custom = form.querySelector('#ssid_custom');
+                if (form.querySelector('#ssid_select')?.value === '---CUSTOM---' && !custom?.value.trim()) {
+                    message.textContent = 'Bitte einen WLAN-Namen eingeben.';
+                    custom?.focus();
+                    return;
+                }
+                const fields = new FormData(form);
+                if (path === '/save_config' && document.getElementById('led_hardware_page')?.dataset.loaded) {
+                    if (typeof clearErrors === 'function') clearErrors(form);
+                    if (typeof validateSegments === 'function' && !validateSegments(form)) return;
+                    fields.set('segments', config.segments.flatMap(segment =>
+                        [segment.startIndex, segment.data, segment.clock, segment.reversed ? 1 : 0]).join(','));
+                }
+                const button = event.submitter || form.querySelector('button[type="submit"]');
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 15000);
+                busy = true;
+                if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST', body: new URLSearchParams(fields), signal: controller.signal, cache: 'no-store'
+                    });
+                    const text = await response.text();
+                    let result;
+                    try { result = JSON.parse(text); } catch (_) { result = {}; }
+                    if (!response.ok) throw new Error(storageErrors[result.error] || result.error || `HTTP ${response.status}`);
+                    const reboot = path === '/save_wifi' || result.status === 'reboot';
+                    message.textContent = reboot ? 'Gespeichert. Gerät startet neu.' : 'Konfiguration gespeichert.';
+                    if (typeof showToast === 'function') showToast(reboot);
+                } catch (error) {
+                    message.setAttribute('role', 'alert');
+                    message.textContent = error.name === 'AbortError' ?
+                        'Keine Speicherbestätigung vom Gerät. Nach dem Neuverbinden die Einstellungen prüfen.' :
+                        `Speichern fehlgeschlagen: ${error.message}`;
+                } finally {
+                    clearTimeout(timeout);
+                    busy = false;
+                    if (button) { button.disabled = false; button.setAttribute('aria-busy', 'false'); }
+                }
+            }, true);
+        }
+    }
     function mount(parent) {
         if (!parent || parent.querySelector('[data-board-panel]')) return;
         const panel = document.createElement('div');
@@ -35,6 +106,13 @@
                 ['Letzter Abbruch', `${wifi.last_disconnect_text} (${wifi.last_disconnect_reason})`],
                 ['Build', state.build_id]
             ];
+            if (state.storage) {
+                entries.push(['Dateisystem', state.storage.mounted ? 'Verfügbar' : 'Nicht verfügbar'],
+                    ['Konfigurationsdatei', state.storage.config_valid ? 'Gültig' : 'Nicht gültig'],
+                    ['Letzte Speicherung', !state.storage.save_attempted ? 'In dieser Sitzung noch nicht gespeichert' :
+                        state.storage.last_save_succeeded ? 'Erfolgreich' : 'Fehlgeschlagen'],
+                    ['Speicherstatus', storageErrors[state.storage.error] || state.storage.error]);
+            }
             diagnostics.replaceChildren(...entries.flatMap(([label, text]) => {
                 const term = document.createElement('dt'); term.textContent = label;
                 const description = document.createElement('dd'); description.textContent = String(text ?? '–');
@@ -102,7 +180,8 @@
         }, 5000);
         window.addEventListener('pagehide', () => clearInterval(timer), { once: true });
     }
-    window.HyperkBoard = { mount };
+    window.HyperkBoard = { mount, installSettingsSaver };
+    installSettingsSaver();
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => mount(document.getElementById('board-controls')), { once: true });
     } else mount(document.getElementById('board-controls'));

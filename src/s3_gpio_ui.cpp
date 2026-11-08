@@ -34,6 +34,13 @@ extern "C" void __wrap__ZN14AsyncWebServer5beginEv(AsyncWebServer* server) {
     server->on(extensionPath, HTTP_GET, [](AsyncWebServerRequest* request) {
         sendAsset(request, "/s3_gpio_extension.js");
     });
+    server->rewrite("/settings_wifi.js", "/hyperk_wifi.js")
+        .setFilter([](AsyncWebServerRequest* request) {
+            return request->method() == HTTP_GET && !request->hasParam("hyperk_original");
+        });
+    server->on("/hyperk_wifi.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+        sendAsset(request, "/wifi_settings_extension.js");
+    });
     server->rewrite("/settings_ota.js", "/hyperk_ota.js")
         .setFilter([](AsyncWebServerRequest* request) {
             return request->method() == HTTP_GET && !request->hasParam("hyperk_original");

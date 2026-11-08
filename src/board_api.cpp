@@ -11,6 +11,7 @@
 #include "board_api.h"
 #include "build_info.h"
 #include "peripheral.h"
+#include "config_store.h"
 
 namespace {
     std::atomic<uint32_t> disconnects{0};
@@ -57,6 +58,13 @@ namespace {
         doc["wifi"]["connect_timeout_ms"] = WIFI_CONNECT_TIMEOUT_MS;
         doc["wifi"]["retry_interval_ms"] = WIFI_RETRY_INTERVAL_MS;
         doc["wifi"]["ap_fallback_ms"] = WIFI_AP_FALLBACK_MS;
+        #ifdef HYPERK_CONFIG_STORE
+            doc["storage"]["mounted"] = ConfigStore::mounted();
+            doc["storage"]["config_valid"] = ConfigStore::configValid();
+            doc["storage"]["last_save_succeeded"] = ConfigStore::lastSaveSucceeded();
+            doc["storage"]["save_attempted"] = ConfigStore::saveAttempted();
+            doc["storage"]["error"] = ConfigStore::error();
+        #endif
         doc["uptime_ms"] = millis();
         doc["reset_reason"] = int(esp_reset_reason());
         #ifdef HYPERK_BUILD_ID
@@ -115,6 +123,22 @@ void BoardApi::registerRoutes(AsyncWebServer& server) {
                 return;
             }
         }
+        #ifdef HYPERK_CONFIG_STORE
+            if (request->method() == HTTP_POST &&
+                (request->url() == "/save_config" || request->url() == "/save_wifi")) {
+                ConfigStore::beginRequest();
+                next();
+                if (ConfigStore::requestFailed()) {
+                    JsonDocument doc;
+                    doc["error"] = ConfigStore::error();
+                    String body;
+                    serializeJson(doc, body);
+                    request->send(503, "application/json", body);
+                }
+                ConfigStore::endRequest();
+                return;
+            }
+        #endif
         next();
     });
 }

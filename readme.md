@@ -41,6 +41,17 @@ UART0 calls to USB Serial/JTAG without modifying its parser or archive.
 See [USB_SERIAL_FIX.md](USB_SERIAL_FIX.md) for validation results, limitations,
 and OTA/application-only USB installation that preserves settings.
 
+### Configuration storage
+
+The FH4R2 profile writes configuration changes to a temporary file, validates
+its JSON, and commits it by rename before reporting success. Failed saves return
+HTTP 503 and do not schedule a reboot or apply the new LED configuration.
+Invalid existing configurations are retained instead of triggering a filesystem
+format. Only a completely erased filesystem partition is initialized automatically.
+The settings forms and board diagnostics show storage failures explicitly.
+See [CONFIG_STORAGE_FIX.md](CONFIG_STORAGE_FIX.md) for findings, validation,
+limitations, and application-only installation instructions.
+
 ### GPIO1 peripheral control
 
 Open **Settings → LED Hardware → Peripherie**, or open `/board.html` on the device.

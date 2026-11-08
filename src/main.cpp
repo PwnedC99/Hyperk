@@ -60,6 +60,7 @@
 #include "wifi_power.h"
 #include "board_api.h"
 #include "network_recovery.h"
+#include "config_store.h"
 
 namespace {
     DNSServer dnsServer;
@@ -130,7 +131,9 @@ void setup() {
     #ifdef HYPERK_BOARD_UI
         BoardApi::init();
     #endif
-    #if defined(ARDUINO_ARCH_ESP32)
+    #ifdef HYPERK_CONFIG_STORE
+        ConfigStore::begin();
+    #elif defined(ARDUINO_ARCH_ESP32)
         LittleFS.begin(true);
     #else
         if (!LittleFS.begin()) {

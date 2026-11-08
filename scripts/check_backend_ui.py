@@ -20,6 +20,10 @@ def extract_ui(library, output):
             if not decoder.eof: raise ValueError("Incomplete asset")
             if "function setupPinValidator()" in text and "function setupLedHardware()" in text:
                 found["settings_led_hardware.js"] = text
+            elif "function setupWifi()" in text and "function scanWifi()" in text:
+                found["settings_wifi.js"] = text
+            elif 'id="ssid_select"' in text and 'name="pass"' in text and "<html" not in text:
+                found["settings_wifi.html"] = text
             elif "function setupOta()" in text and "function startOtaUpdate()" in text:
                 found["settings_ota.js"] = text
             elif 'id="ota_channel"' in text and 'id="install_update_btn"' in text and "<html" not in text:
@@ -32,7 +36,7 @@ def extract_ui(library, output):
             pass
         position += 3
     expected = {"settings_led_hardware.js", "settings.html", "settings_led_hardware.html",
-                "settings_ota.js", "settings_ota.html"}
+                "settings_ota.js", "settings_ota.html", "settings_wifi.js", "settings_wifi.html"}
     if set(found) != expected: raise ValueError("Backend UI layout changed; review the board extension")
     pattern = r'"ESP32-S3"\s*:\s*\{\s*gpio\s*:\s*\[([^\]]*)\]'
     if len(re.findall(pattern, found["settings_led_hardware.js"])) != 1:
