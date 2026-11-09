@@ -61,6 +61,7 @@
 #include "board_api.h"
 #include "network_recovery.h"
 #include "config_store.h"
+#include "config_diagnostics.h"
 
 namespace {
     DNSServer dnsServer;
@@ -98,6 +99,7 @@ namespace {
     #endif
 
     void startAP(bool scheduleAutomaticRestartToReconnect) {
+        ConfigDiagnostics::event("[WIFI] SoftAP start requested");
         constexpr uint16_t DNS_PORT = 53;
         inAPMode = true;
         #ifdef HYPERK_WIFI_RECOVERY
@@ -128,6 +130,7 @@ bool isAPMode() {
 }
 
 void setup() {
+    ConfigDiagnostics::begin();
     #ifdef HYPERK_BOARD_UI
         BoardApi::init();
     #endif
@@ -147,9 +150,12 @@ void setup() {
         delay(8000);
     #endif
 
-    Config::loadConfig();
+    const bool configLoaded = Config::loadConfig();
+    ConfigDiagnostics::event("[BOOT] Config loader returned", configLoaded);
 
+    #ifndef HYPERK_CONFIG_DIAGNOSTICS
     SerialPort::init(Config::getSeriaPortSpeed());
+    #endif
 
     Leds::applyLedConfig();
 
@@ -193,6 +199,7 @@ void setup() {
                 WifiPower::apply();
             #endif
             WiFi.begin(ssid, pass);
+            ConfigDiagnostics::event("[WIFI] STA connection attempt started");
             const uint32_t started = millis();
             while (WiFi.status() != WL_CONNECTED && static_cast<uint32_t>(millis() - started) < WIFI_CONNECT_TIMEOUT_MS)
             {
@@ -202,6 +209,7 @@ void setup() {
 
         if (WiFi.status() != WL_CONNECTED)
         {
+            ConfigDiagnostics::event("[WIFI] STA unavailable; setup fallback", WiFi.status());
             #ifdef HYPERK_WIFI_RECOVERY
                 startAP(false);
             #else
@@ -229,6 +237,7 @@ void setup() {
 
 void loop()
 {    
+    ConfigDiagnostics::poll();
     #if defined(SERIAL_PORT_LITE)
         SerialPort::processEventsFromLoop();
     #endif
@@ -240,10 +249,12 @@ void loop()
             const auto action = recovery.poll(millis(), connected,
                 inAPMode, inAPMode && WiFi.softAPgetStationNum() > 0);
             if (action == NetworkRecovery::Action::Retry) {
+                ConfigDiagnostics::event("[WIFI] STA retry started");
                 WiFi.reconnect();
             } else if (action == NetworkRecovery::Action::StartAP) {
                 startAP(false);
             } else if (action == NetworkRecovery::Action::CloseAP) {
+                ConfigDiagnostics::event("[WIFI] SoftAP stopping; STA connected");
                 dnsServer.stop();
                 WiFi.softAPdisconnect(true);
                 inAPMode = false;

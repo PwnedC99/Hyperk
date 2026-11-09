@@ -69,6 +69,23 @@ The board page also shows connection status, RSSI, the requested transmit-power
 ceiling, the ceiling reported by the WiFi driver, disconnection reasons, and the
 build ID. The driver-reported ceiling is not a measurement of radiated power.
 
+### Saving LED hardware settings
+
+Current storage regression analysis and Windows USB test procedure:
+[Configuration persistence investigation](CONFIG_PERSISTENCE_INVESTIGATION.md).
+
+The ESP32 HTTP task uses AsyncTCP's default 16 KB stack. Reducing it to 4 KB
+can cause a panic during settings saves through the middleware, JSON serializer,
+and LittleFS, before the new values reach flash. The corrected configuration was
+verified on an FH4R2 board by saving 299 SK6812 RGBW LEDs with GPIO37 starting at
+0 and GPIO38 starting at 149; the HTTP request completed successfully with RMT
+enabled. This does not establish that every SPI or hardware configuration works.
+
+The LED count is a count, not the last zero-based index. Two physical strips of
+150 LEDs normally use 300 total LEDs and segment starts 0 and 150. A total of
+299 with starts 0 and 149 addresses 149 LEDs on the first output and 150 on the
+second output.
+
 ### Local OTA firmware upload
 
 Open **Settings → Firmware Update (OTA) → Lokale Firmware installieren**, select

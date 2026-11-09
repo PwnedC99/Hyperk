@@ -1,5 +1,12 @@
 # Konfiguration wird nach dem Speichern nicht übernommen
 
+**Nachtrag 08.11.2026:** Diese erste Korrektur enthielt selbst einen Fehler in der
+Schema-Prüfung (`numLeds` statt `led.numLeds`) und beließ den HTTP-Stack bei 4 KB.
+Der aktuelle Befund, Korrekturen und die Windows-Testanleitung stehen in
+[CONFIG_PERSISTENCE_INVESTIGATION.md](CONFIG_PERSISTENCE_INVESTIGATION.md).
+Die unten genannten älteren Firmwaredateien sind damit für diese Untersuchung
+überholt.
+
 ## Befund und Grenze der Diagnose
 
 Die Untersuchung des unveränderten Backends 0.0.5 zeigt drei konkrete Schwächen:

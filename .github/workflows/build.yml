@@ -78,6 +78,9 @@ jobs:
           PLATFORMIO_BUILD_SRC_FLAGS: '-DWIFI_TX_POWER_DBM=17.0 -DWIFI_LOW_LATENCY=1'
         run: pio run -j 2 -e esp32s3-fh4r2
 
+      - name: Build isolated USB configuration diagnostics
+        run: pio run -j 2 -e esp32s3-fh4r2-diagnostic
+
       - name: Upload ESP32-S3FH4R2 firmware
         uses: actions/upload-artifact@v7
         with:

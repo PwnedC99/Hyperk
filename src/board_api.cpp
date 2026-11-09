@@ -12,6 +12,7 @@
 #include "build_info.h"
 #include "peripheral.h"
 #include "config_store.h"
+#include "config_diagnostics.h"
 
 namespace {
     std::atomic<uint32_t> disconnects{0};
@@ -64,6 +65,9 @@ namespace {
             doc["storage"]["last_save_succeeded"] = ConfigStore::lastSaveSucceeded();
             doc["storage"]["save_attempted"] = ConfigStore::saveAttempted();
             doc["storage"]["error"] = ConfigStore::error();
+            doc["storage"]["schema"] = "backend-0.0.5";
+            doc["storage"]["public_checksum"] = ConfigStore::publicChecksum();
+            doc["storage"]["led_recovery"] = ConfigStore::ledRecovery();
         #endif
         doc["uptime_ms"] = millis();
         doc["reset_reason"] = int(esp_reset_reason());
@@ -85,10 +89,12 @@ namespace {
 void BoardApi::init() {
     Peripheral::init();
     WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+        ConfigDiagnostics::event("[WIFI] Event", event);
         if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
             lastDisconnectReason.store(info.wifi_sta_disconnected.reason);
             lastDisconnectMs.store(millis());
             disconnects.fetch_add(1);
+            ConfigDiagnostics::event("[WIFI] STA connection failed; reason", info.wifi_sta_disconnected.reason);
         }
     });
 }
@@ -126,6 +132,10 @@ void BoardApi::registerRoutes(AsyncWebServer& server) {
         #ifdef HYPERK_CONFIG_STORE
             if (request->method() == HTTP_POST &&
                 (request->url() == "/save_config" || request->url() == "/save_wifi")) {
+                if (request->contentType().startsWith("application/json")) {
+                    request->send(415, "application/json", "{\"error\":\"form_data_required\"}");
+                    return;
+                }
                 ConfigStore::beginRequest();
                 next();
                 if (ConfigStore::requestFailed()) {

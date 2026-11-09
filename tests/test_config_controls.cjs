@@ -95,6 +95,24 @@ test('network failures are visible; duplicate submissions and installs do not du
 });
 
 const fixtures = process.env.HYPERK_BACKEND_FIXTURES;
+test('Load failed is an unconfirmed result and never reports successful persistence', async () => {
+    const p = page(() => { throw new TypeError('Load failed'); });
+    try {
+        const form = p.submit('/save_config'); await tick();
+        assert.match(form.querySelector('[data-config-save-status]').textContent, /Keine Speicherbestätigung/);
+        assert.deepEqual(p.toasts, []);
+    } finally { p.dom.window.close(); }
+});
+
+test('an unexpected HTTP 200 page is not accepted as settings confirmation', async () => {
+    const p = page({ ok: true, text: async () => '<html>Setup</html>' });
+    try {
+        const form = p.submit('/save_config'); await tick();
+        assert.match(form.querySelector('[data-config-save-status]').textContent, /Ungültige Speicherbestätigung/);
+        assert.deepEqual(p.toasts, []);
+    } finally { p.dom.window.close(); }
+});
+
 test('real WiFi backend loader keeps native field names and exposes storage failure', { skip: !fixtures }, async () => {
     const html = fs.readFileSync(path.join(fixtures, 'settings_wifi.html'), 'utf8');
     const backend = fs.readFileSync(path.join(fixtures, 'settings_wifi.js'), 'utf8');

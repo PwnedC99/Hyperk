@@ -6,8 +6,13 @@
         backend_load_failed: 'Das Backend konnte die Konfiguration nicht laden.',
         pending_cleanup_failed: 'Temporäre Konfigurationsdatei konnte nicht entfernt werden.',
         backend_write_failed: 'Konfiguration konnte nicht geschrieben werden.',
+        config_sync_failed: 'Schreiben in den Flash konnte nicht abgeschlossen werden.',
         written_config_invalid: 'Geschriebene Konfiguration war unvollständig oder ungültig.',
         config_commit_failed: 'Geprüfte Konfiguration konnte nicht übernommen werden.',
+        config_backup_failed: 'Vorherige Konfiguration konnte nicht gesichert werden.',
+        committed_config_invalid: 'Konfiguration nach dem Übernehmen nicht lesbar; Wiederherstellung erforderlich.',
+        config_recovery_failed: 'Vorherige Konfiguration konnte nicht wiederhergestellt werden.',
+        form_data_required: 'Dieser Endpunkt erwartet Formulardaten.',
         save_failed_and_reload_failed: 'Speichern und Wiederherstellen der vorherigen Konfiguration sind fehlgeschlagen.'
     };
     function installSettingsSaver() {
@@ -54,12 +59,14 @@
                     let result;
                     try { result = JSON.parse(text); } catch (_) { result = {}; }
                     if (!response.ok) throw new Error(storageErrors[result.error] || result.error || `HTTP ${response.status}`);
+                    if (path === '/save_config' && !['ok', 'saved', 'reboot'].includes(result.status))
+                        throw new Error('Ungültige Speicherbestätigung');
                     const reboot = path === '/save_wifi' || result.status === 'reboot';
                     message.textContent = reboot ? 'Gespeichert. Gerät startet neu.' : 'Konfiguration gespeichert.';
                     if (typeof showToast === 'function') showToast(reboot);
                 } catch (error) {
                     message.setAttribute('role', 'alert');
-                    message.textContent = error.name === 'AbortError' ?
+                    message.textContent = error.name === 'AbortError' || error.name === 'TypeError' ?
                         'Keine Speicherbestätigung vom Gerät. Nach dem Neuverbinden die Einstellungen prüfen.' :
                         `Speichern fehlgeschlagen: ${error.message}`;
                 } finally {
@@ -112,6 +119,7 @@
                     ['Letzte Speicherung', !state.storage.save_attempted ? 'In dieser Sitzung noch nicht gespeichert' :
                         state.storage.last_save_succeeded ? 'Erfolgreich' : 'Fehlgeschlagen'],
                     ['Speicherstatus', storageErrors[state.storage.error] || state.storage.error]);
+                if (state.storage.led_recovery) entries.push(['LED-Wiederherstellung', 'LED-Initialisierung angehalten. Konfiguration prüfen und erneut speichern.']);
             }
             diagnostics.replaceChildren(...entries.flatMap(([label, text]) => {
                 const term = document.createElement('dt'); term.textContent = label;

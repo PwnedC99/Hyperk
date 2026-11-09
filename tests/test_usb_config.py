@@ -34,7 +34,7 @@ class UsbConfigTests(unittest.TestCase):
         self.assertNotIn("${end:esp32-enable-cdc.build_flags}", text)
 
     def test_usb_flags_survive_inheritance(self):
-        for name in ["esp32s3", "esp32s3-fh4r2", "esp32s2", "esp32c3", "esp32c5", "esp32c6"]:
+        for name in ["esp32s3", "esp32s3-fh4r2", "esp32s3-fh4r2-diagnostic", "esp32s2", "esp32c3", "esp32c5", "esp32c6"]:
             with self.subTest(environment=name):
                 section = "env:" + name
                 flags = self.tokens(section)
@@ -63,6 +63,13 @@ class UsbConfigTests(unittest.TestCase):
                      "-DPERIPHERAL_ENABLE_GPIO=1", "-DUSE_MULTI_ESP32_LED_STRIP",
                      "-Wl,--wrap=_ZN14AsyncWebServer5beginEv"]:
             self.assertIn(flag, flags)
+
+    def test_http_stack_and_diagnostic_separation(self):
+        for name in ["esp32s3-fh4r2", "esp32s3-fh4r2-diagnostic"]:
+            flags = self.tokens("env:" + name)
+            self.assertEqual([f for f in flags if f.startswith("-DCONFIG_ASYNC_TCP_STACK_SIZE=")],
+                             ["-DCONFIG_ASYNC_TCP_STACK_SIZE=16384"])
+            self.assertEqual("-DHYPERK_CONFIG_DIAGNOSTICS" in flags, name.endswith("-diagnostic"))
 
 
 if __name__ == "__main__":

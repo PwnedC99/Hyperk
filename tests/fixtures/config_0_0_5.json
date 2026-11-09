@@ -1,0 +1,49 @@
+{
+  "wifi": {
+    "ssid": "diagnostic-example",
+    "pass": "example-only"
+  },
+  "deviceName": "hyperk",
+  "extraMdnsTag": "",
+  "interfaces": {
+    "serialPortSpeed": 0
+  },
+  "led": {
+    "type": 1,
+    "numLeds": 258,
+    "brightness": 255,
+    "r": 196,
+    "g": 32,
+    "b": 8,
+    "effect": 1,
+    "colorOrder": 0
+  },
+  "segments": [
+    {
+      "startIndex": 0,
+      "data": 37,
+      "clock": 4,
+      "reversed": 0
+    },
+    {
+      "startIndex": 129,
+      "data": 38,
+      "clock": 0,
+      "reversed": 0
+    }
+  ],
+  "relay": {
+    "relay-gpio": -1,
+    "relay-inverted": false
+  },
+  "quirks": {
+    "disableSpiEmulation": false,
+    "minSegmentsForI2s": 1
+  },
+  "calibration": {
+    "gain": 255,
+    "red": 160,
+    "green": 160,
+    "blue": 160
+  }
+}
